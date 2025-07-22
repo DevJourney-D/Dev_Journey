@@ -1,4 +1,17 @@
 import nodemailer from "nodemailer";
+import { rateLimit, getRateLimitHeaders } from '../utils/rateLimit.js';
+
+// Input sanitization function
+function sanitizeInput(input) {
+  if (typeof input !== 'string') return input;
+  
+  return input
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/javascript:/gi, '') // Remove javascript: URLs
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '') // Remove event handlers
+    .trim();
+}
 
 // Nodemailer config with enhanced settings
 const transporter = nodemailer.createTransport({
@@ -16,6 +29,27 @@ const transporter = nodemailer.createTransport({
 });
 
 export default async function handler(req, res) {
+  // Get client IP
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0] || 
+             req.headers["x-real-ip"] || 
+             req.connection.remoteAddress || 
+             'unknown';
+
+  // Apply rate limiting (10 emails per 10 minutes per IP)
+  const rateLimitResult = rateLimit(ip, 10, 600000);
+  
+  // Set rate limit headers  
+  const rateLimitHeaders = getRateLimitHeaders(rateLimitResult);
+  Object.entries(rateLimitHeaders).forEach(([key, value]) => {
+    res.setHeader(key, value);
+  });
+
+  // Security Headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
   // Enable CORS for production domain
   res.setHeader('Access-Control-Allow-Origin', 'https://dev-journey-app.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -27,20 +61,50 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  // Check if rate limited
+  if (rateLimitResult.isLimited) {
+    return res.status(429).json({ 
+      error: 'Too many requests', 
+      message: 'คุณส่งอีเมลบ่อยเกินไป กรุณารอ 10 นาทีแล้วลองใหม่อีกครั้ง',
+      retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   console.log('Sendmail API called with data:', req.body);
 
-  const { name, email, phone, type, budget, detail } = req.body;
+  let { name, email, phone, type, budget, detail } = req.body;
 
-  // Validate ฟิลด์เบื้องต้น (กัน empty spam)
-  if (!detail || detail.trim().length === 0) {
+  // Sanitize inputs
+  name = sanitizeInput(name);
+  email = sanitizeInput(email);
+  phone = sanitizeInput(phone);
+  type = sanitizeInput(type);
+  budget = sanitizeInput(budget);
+  detail = sanitizeInput(detail);
+
+  // Enhanced validation (ยกเว้นข้อความที่เป็น "ไม่มีข้อความ")
+  if (!detail || (detail.trim().length === 0 && detail !== "ไม่มีข้อความ")) {
     console.log('Validation failed: No detail provided');
     return res
       .status(400)
       .json({ success: false, message: "กรุณากรอกข้อความ" });
+  }
+
+  if (detail.length > 5000) {
+    return res
+      .status(400)
+      .json({ success: false, message: "ข้อความยาวเกินไป (สูงสุด 5000 ตัวอักษร)" });
+  }
+
+  // Email validation (ข้าม validation ถ้าเป็น "ไม่ระบุ")
+  if (email && email !== "ไม่ระบุ" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "รูปแบบอีเมลไม่ถูกต้อง" });
   }
 
   const mailOptions = {
