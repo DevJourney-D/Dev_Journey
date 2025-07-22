@@ -405,8 +405,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        // เปลี่ยน URL ให้เป็น production ของ Railway หรือ Netlify หรือ Vercel ที่คุณใช้งาน
-        const BACKEND_URL = 'https://devjourney-production.up.railway.app/api/sendmail';
+        // ใช้ production domain ของ Vercel
+        const BACKEND_URL = 'https://dev-journey-app.vercel.app/api/sendmail';
 
         // ฟอร์มติดต่อเรา
         document.getElementById('contactForm').onsubmit = async function (e) {
@@ -494,8 +494,8 @@
         // --- Visitor Counter (เรียก backend ตัวเอง) ---
         (async function () {
             try {
-                await fetch("https://devjourney-production.up.railway.app/api/hit", { method: "POST" });
-                const res = await fetch("https://devjourney-production.up.railway.app/api/counter");
+                await fetch("https://dev-journey-app.vercel.app/api/hit", { method: "POST" });
+                const res = await fetch("https://dev-journey-app.vercel.app/api/counter");
                 const data = await res.json();
                 document.getElementById("visitor-stats").innerHTML =
                     `เข้าชมสะสม <b>${data.total.toLocaleString()}</b> | สัปดาห์นี้ <b>${data.week.toLocaleString()}</b> | วันนี้ <b>${data.today.toLocaleString()}</b>`;
