@@ -26,6 +26,11 @@ export default function handler(req, res) {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // ป้องกัน cache - บังคับให้ดึงข้อมูลใหม่ทุกครั้ง
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
 
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', 'https://dev-journey-app.vercel.app');
@@ -65,10 +70,22 @@ export default function handler(req, res) {
       return d.toISOString().slice(0, 10);
     })();
 
+    const counterData = storage.getCounter();
+    const todayCount = storage.getTodayCount(todayStr);
+    const weekCount = storage.getWeekCount(weekStr);
+    
+    console.log('Counter API: Current data', {
+      total: counterData.total,
+      today: todayCount,
+      week: weekCount,
+      todayStr,
+      weekStr
+    });
+
     res.status(200).json({
-      total: storage.getCounter().total || 0,
-      today: storage.getTodayCount(todayStr),
-      week: storage.getWeekCount(weekStr),
+      total: counterData.total || 0,
+      today: todayCount,
+      week: weekCount,
     });
   } else if (req.method === 'POST') {
     // การลบข้อมูลเฉพาะ

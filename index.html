@@ -560,12 +560,39 @@
         // --- Visitor Counter (เรียก backend ตัวเอง) ---
         async function loadVisitorStats() {
             try {
-                await fetch("https://dev-journey-app.vercel.app/api/hit", { method: "POST" });
-                const res = await fetch("https://dev-journey-app.vercel.app/api/counter");
-                const data = await res.json();
+                // เพิ่ม timestamp เพื่อป้องกัน cache
+                const timestamp = new Date().getTime();
+                
+                // เรียก hit API ก่อน
+                const hitResponse = await fetch(`https://dev-journey-app.vercel.app/api/hit?t=${timestamp}`, { 
+                    method: "POST",
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
+                console.log('Hit API response:', hitResponse.status, hitResponse.statusText);
+                
+                // รอ 100ms แล้วค่อยดึงข้อมูล counter
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const counterResponse = await fetch(`https://dev-journey-app.vercel.app/api/counter?t=${timestamp}`, {
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
+                console.log('Counter API response:', counterResponse.status, counterResponse.statusText);
+                
+                const data = await counterResponse.json();
+                console.log('Counter data:', data);
+                
                 document.getElementById("visitor-stats").innerHTML =
                     `เข้าชมสะสม <b>${data.total.toLocaleString()}</b> | สัปดาห์นี้ <b>${data.week.toLocaleString()}</b> | วันนี้ <b>${data.today.toLocaleString()}</b>`;
-            } catch {
+            } catch (error) {
+                console.error('Visitor counter error:', error);
                 document.getElementById("visitor-stats").innerHTML = "ไม่สามารถโหลดจำนวนผู้เข้าชม";
             }
         }
@@ -592,6 +619,37 @@
 
         window.refreshVisitorStats = function() {
             loadVisitorStats();
+        };
+        
+        // ฟังก์ชัน debug
+        window.debugVisitorCounter = async function() {
+            try {
+                console.log('=== Debug Visitor Counter ===');
+                
+                // ทดสอบ hit API
+                const timestamp = new Date().getTime();
+                const hitRes = await fetch(`https://dev-journey-app.vercel.app/api/hit?t=${timestamp}`, { 
+                    method: "POST" 
+                });
+                const hitData = await hitRes.json();
+                console.log('Hit API Response:', hitData);
+                
+                // ทดสอบ counter API
+                const counterRes = await fetch(`https://dev-journey-app.vercel.app/api/counter?t=${timestamp}`);
+                const counterData = await counterRes.json();
+                console.log('Counter API Response:', counterData);
+                
+                // ทดสอบ detailed stats
+                const detailRes = await fetch(`https://dev-journey-app.vercel.app/api/counter?stats=detailed&t=${timestamp}`);
+                const detailData = await detailRes.json();
+                console.log('Detailed Stats:', detailData);
+                
+                alert('Debug เสร็จแล้ว ดูผลลัพธ์ใน Console');
+                
+            } catch (error) {
+                console.error('Debug error:', error);
+                alert('เกิดข้อผิดพลาดในการ debug');
+            }
         };
         
         // ดูสถิติแบบละเอียด

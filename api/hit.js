@@ -34,6 +34,11 @@ export default function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://dev-journey-app.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // ป้องกัน cache
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
 
   // Handle preflight
   if (req.method === 'OPTIONS') {
@@ -56,10 +61,16 @@ export default function handler(req, res) {
   let isNewToday = !storage.hasVisitedToday(todayStr, ip);
   let isNewWeek = !storage.hasVisitedThisWeek(weekStr, ip);
 
+  console.log(`Hit API: IP=${ip}, Today=${todayStr}, Week=${weekStr}, NewToday=${isNewToday}, NewWeek=${isNewWeek}`);
+
   if (isNewToday) {
     storage.addTodayVisitor(todayStr, ip);
     storage.incrementTotal();
+    console.log('Hit API: New visitor counted');
+  } else {
+    console.log('Hit API: Visitor already counted today');
   }
+  
   if (isNewWeek) {
     storage.addWeekVisitor(weekStr, ip);
   }
@@ -67,5 +78,10 @@ export default function handler(req, res) {
   // ลบข้อมูลเก่า
   storage.cleanOldData();
 
-  res.status(200).json({ success: true });
+  res.status(200).json({ 
+    success: true, 
+    counted: isNewToday,
+    ip: ip,
+    date: todayStr 
+  });
 }

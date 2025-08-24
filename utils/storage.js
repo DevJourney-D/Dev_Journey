@@ -18,6 +18,7 @@ const storage = {
   
   incrementTotal() {
     this.counter.total = (this.counter.total || 0) + 1;
+    console.log('Storage: Total incremented to', this.counter.total);
   },
   
   addTodayVisitor(todayStr, ip) {
@@ -25,6 +26,7 @@ const storage = {
       this.counter.today[todayStr] = {};
     }
     this.counter.today[todayStr][ip] = true;
+    console.log(`Storage: Added visitor ${ip} for today ${todayStr}`);
   },
   
   addWeekVisitor(weekStr, ip) {
@@ -32,6 +34,7 @@ const storage = {
       this.counter.week[weekStr] = {};
     }
     this.counter.week[weekStr][ip] = true;
+    console.log(`Storage: Added visitor ${ip} for week ${weekStr}`);
   },
   
   hasVisitedToday(todayStr, ip) {
