@@ -558,7 +558,7 @@
         };
 
         // --- Visitor Counter (เรียก backend ตัวเอง) ---
-        (async function () {
+        async function loadVisitorStats() {
             try {
                 await fetch("https://dev-journey-app.vercel.app/api/hit", { method: "POST" });
                 const res = await fetch("https://dev-journey-app.vercel.app/api/counter");
@@ -568,7 +568,89 @@
             } catch {
                 document.getElementById("visitor-stats").innerHTML = "ไม่สามารถโหลดจำนวนผู้เข้าชม";
             }
-        })();
+        }
+
+        // เรียกใช้ทันทีเมื่อโหลดหน้า
+        loadVisitorStats();
+
+        // Admin functions (ซ่อนไว้ - เข้าถึงผ่าน console)
+        window.resetVisitorCounter = async function() {
+            const confirmed = confirm('คุณแน่ใจหรือไม่ที่จะรีเซ็ตตัวนับจำนวนผู้เข้าชมทั้งหมด?');
+            if (confirmed) {
+                try {
+                    const res = await fetch("https://dev-journey-app.vercel.app/api/counter", { 
+                        method: "DELETE" 
+                    });
+                    const result = await res.json();
+                    alert(result.message);
+                    loadVisitorStats(); // โหลดข้อมูลใหม่
+                } catch (error) {
+                    alert('เกิดข้อผิดพลาดในการรีเซ็ตตัวนับ');
+                }
+            }
+        };
+
+        window.refreshVisitorStats = function() {
+            loadVisitorStats();
+        };
+        
+        // ดูสถิติแบบละเอียด
+        window.showDetailedStats = async function() {
+            try {
+                const res = await fetch("https://dev-journey-app.vercel.app/api/counter?stats=detailed");
+                const data = await res.json();
+                console.table({
+                    'ยอดรวม': data.total,
+                    'จำนวนวัน': data.totalDays,
+                    'จำนวนสัปดาห์': data.totalWeeks
+                });
+                console.log('ข้อมูลรายวัน:', data.dailyData);
+                console.log('ข้อมูลรายสัปดาห์:', data.weeklyData);
+                alert(`สถิติรวม: ${data.total} คน, ${data.totalDays} วัน, ${data.totalWeeks} สัปดาห์\nดูข้อมูลละเอียดใน Console`);
+            } catch (error) {
+                alert('ไม่สามารถดึงข้อมูลสถิติได้');
+            }
+        };
+        
+        // ลบข้อมูลเฉพาะวัน (รูปแบบ: YYYY-MM-DD)
+        window.clearSpecificDay = async function(date) {
+            if (!date) {
+                date = prompt('ใส่วันที่ที่ต้องการลบ (รูปแบบ: YYYY-MM-DD)\nเช่น: 2024-08-25');
+            }
+            if (date && confirm(`คุณแน่ใจหรือไม่ที่จะลบข้อมูลวันที่ ${date}?`)) {
+                try {
+                    const res = await fetch("https://dev-journey-app.vercel.app/api/counter", {
+                        method: "POST",
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'clearDay', date })
+                    });
+                    const result = await res.json();
+                    alert(result.message);
+                    loadVisitorStats();
+                } catch (error) {
+                    alert('เกิดข้อผิดพลาดในการลบข้อมูล');
+                }
+            }
+        };
+        
+        // บังคับล้างข้อมูลเก่า
+        window.forceCleanup = async function() {
+            const confirmed = confirm('บังคับล้างข้อมูลเก่าที่เก็บไว้เกิน 7 วัน?');
+            if (confirmed) {
+                try {
+                    const res = await fetch("https://dev-journey-app.vercel.app/api/counter", {
+                        method: "POST",
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'forceCleanup' })
+                    });
+                    const result = await res.json();
+                    alert(result.message);
+                    loadVisitorStats();
+                } catch (error) {
+                    alert('เกิดข้อผิดพลาดในการล้างข้อมูล');
+                }
+            }
+        };
 
         function showPortfolioModal(type) {
             const modalTitle = document.getElementById('portfolioModalLabel');

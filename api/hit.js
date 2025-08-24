@@ -3,8 +3,7 @@
 // ในการใช้งานจริงควรใช้ Vercel KV, Redis, หรือ database
 
 import { rateLimit, getRateLimitHeaders } from '../utils/rateLimit.js';
-
-let counter = { total: 0, today: {}, week: {} };
+import storage from '../utils/storage.js';
 
 export default function handler(req, res) {
   // Get client IP
@@ -54,27 +53,19 @@ export default function handler(req, res) {
   })();
 
   // กันนับซ้ำ: 1 IP/วัน
-  if (!counter.today[todayStr]) counter.today[todayStr] = {};
-  if (!counter.week[weekStr]) counter.week[weekStr] = {};
-
-  let isNewToday = !counter.today[todayStr][ip];
-  let isNewWeek = !counter.week[weekStr][ip];
+  let isNewToday = !storage.hasVisitedToday(todayStr, ip);
+  let isNewWeek = !storage.hasVisitedThisWeek(weekStr, ip);
 
   if (isNewToday) {
-    counter.today[todayStr][ip] = true;
-    counter.total = (counter.total || 0) + 1;
+    storage.addTodayVisitor(todayStr, ip);
+    storage.incrementTotal();
   }
   if (isNewWeek) {
-    counter.week[weekStr][ip] = true;
+    storage.addWeekVisitor(weekStr, ip);
   }
 
-  // ลบข้อมูลเก่า (เก็บแค่ 14 วัน)
-  Object.keys(counter.today).forEach(day => {
-    if ((new Date() - new Date(day)) / 864e5 > 14) delete counter.today[day];
-  });
-  Object.keys(counter.week).forEach(week => {
-    if ((new Date() - new Date(week)) / 864e5 > 21) delete counter.week[week];
-  });
+  // ลบข้อมูลเก่า
+  storage.cleanOldData();
 
   res.status(200).json({ success: true });
 }
